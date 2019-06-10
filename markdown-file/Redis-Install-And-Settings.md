@@ -22,9 +22,16 @@
 - Redis 默认的配置文件内容：
 
 ``` ini
-bind 0.0.0.0
+安全情况的几个特殊配置：
+bind 127.0.0.1
 requirepass adgredis123456
 protected-mode yes
+
+免密情况：
+bind 0.0.0.0
+protected-mode no
+
+其他：
 port 6379
 tcp-backlog 511
 timeout 0
@@ -88,6 +95,8 @@ aof-rewrite-incremental-fsync yes
 #### Redis 容器准备
 
 - 目标：3 主 3 从（一般都是推荐奇数个 master）
+- 最小集群数推荐是：3
+- 测试机的最低配置推荐是：2C4G
 - 拉取镜像：`docker pull registry.cn-shenzhen.aliyuncs.com/youmeek/redis-to-cluster:3.2.3`
 - 重新打个 tag（旧名字太长了）：`docker tag registry.cn-shenzhen.aliyuncs.com/youmeek/redis-to-cluster:3.2.3 redis-to-cluster:3.2.3`
 - 创建网段：`docker network create --subnet=172.19.0.0/16 net-redis-to-cluster`
@@ -656,6 +665,38 @@ evicted_keys : 因为最大内存容量限制而被驱逐（evict）的键数量
 used_cpu_sys_children : Redis 后台进程在 内核态 消耗的 CPU
 used_cpu_user_children : Redis 后台进程在 用户态 消耗的 CPU
 ```
+
+## Redis 基准压力测试
+
+- 默认安装包下就自带
+- 官网文档：<https://redis.io/topics/benchmarks>
+- 运行：`redis-benchmark -q -n 100000`
+	- `-q` 表示 quiet 安静执行，结束后直接输出结果即可
+	- `-n 100000` 请求 10 万次
+
+```
+PING_INLINE: 62189.05 requests per second
+PING_BULK: 68634.18 requests per second
+SET: 58241.12 requests per second
+GET: 65445.03 requests per second
+INCR: 57703.40 requests per second
+LPUSH: 61199.51 requests per second
+RPUSH: 68119.89 requests per second
+LPOP: 58309.04 requests per second
+RPOP: 63775.51 requests per second
+SADD: 58479.53 requests per second
+HSET: 61500.61 requests per second
+SPOP: 58241.12 requests per second
+LPUSH (needed to benchmark LRANGE): 59523.81 requests per second
+LRANGE_100 (first 100 elements): 60350.03 requests per second
+LRANGE_300 (first 300 elements): 57636.89 requests per second
+LRANGE_500 (first 450 elements): 63251.11 requests per second
+LRANGE_600 (first 600 elements): 58479.53 requests per second
+MSET (10 keys): 56401.58 requests per second
+```
+
+- 只测试特定类型：`redis-benchmark -t set,lpush -n 100000 -q`
+
 
 ## 资料
 

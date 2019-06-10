@@ -66,6 +66,8 @@ procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
 	- `bi` 表示从块设备读取数据的量（读磁盘）
 	- `bo` 表示从块设备写入数据的量（写磁盘）
 	- **如果bi和bo两个数字比较高，则说明，磁盘IO压力大。**
+	- `in` 每秒 CPU 的中断次数，包括时间中断
+	- `cs` 每秒上下文切换次数，例如我们调用系统函数，就要进行上下文切换，线程的切换，也要进程上下文切换，这个值要越小越好，太大了，要考虑调低线程或者进程的数目
 	- `wa` 表示I/O等待所占用CPU的时间比
 
 #### 命令：sar（综合）
@@ -266,6 +268,7 @@ atctive 和 passive 的数目通常可以用来衡量服务器的负载：接受
 - 在 `top` 命令状态下按 <kbd>shfit</kbd> + <kbd>m</kbd> 可以按照 **内存使用** 大小排序
 - 在 `top` 命令状态下按 <kbd>shfit</kbd> + <kbd>p</kbd> 可以按照 **CPU 使用** 大小排序
 - 展示数据上，%CPU 表示进程占用的 CPU 百分比，%MEM 表示进程占用的内存百分比
+- mac 下不一样：要先输入 o，然后输入 cpu 则按 cpu 使用量排序，输入 rsize 则按内存使用量排序。
 
 #### CPU 其他工具
 
@@ -568,12 +571,12 @@ TOTAL:（总的流量）       12.9GB          229Mb              190Mb   193Mb 
 
 ```
 
-### 端口使用情况
+### 端口使用情况（也可以用来查看端口占用）
 
 #### lsof
 
 - 安装 lsof：`yum install -y lsof`
-- 查看 3316 端口是否有被使用：`lsof -i:3316`，**有被使用会输出类似如下信息，如果没被使用会没有任何信息返回**
+- 查看 3316 端口是否有被使用（macOS 也适用）：`lsof -i:3316`，**有被使用会输出类似如下信息，如果没被使用会没有任何信息返回**
 
 ```
 COMMAND     PID USER   FD   TYPE  DEVICE SIZE/OFF NODE NAME
@@ -593,7 +596,7 @@ docker-pr 13551 root    4u  IPv6 2116824      0t0  TCP *:aicc-cmi (LISTEN)
 #### netstat
 
 - 更多用法可以看：[netstat 的10个基本用法](https://linux.cn/article-2434-1.html)
-- 查看所有在用的端口：`netstat -ntlp`
+- 查看所有在用的端口（macOS 也适用）：`netstat -ntlp`
 
 ```
 Active Internet connections (only servers)
@@ -682,12 +685,12 @@ eth0      1500 10903437      0      0 0      10847867      0      0      0 BMRU
 lo       65536   453650      0      0 0        453650      0      0      0 LRU
 ```
 
-- 接收：
+- 接收（该值是历史累加数据，不是瞬间数据，要计算时间内的差值需要自己减）：
 	- RX-OK 已接收字节数
 	- RX-ERR 已接收错误字节数（数据值大说明网络存在问题）
 	- RX-DRP 已丢失字节数（数据值大说明网络存在问题）
 	- RX-OVR 由于误差而遗失字节数（数据值大说明网络存在问题）
-- 发送：
+- 发送（该值是历史累加数据，不是瞬间数据，要计算时间内的差值需要自己减）：
 	- TX-OK 已发送字节数
 	- TX-ERR 已发送错误字节数（数据值大说明网络存在问题）
 	- TX-DRP 已丢失字节数（数据值大说明网络存在问题）
@@ -777,6 +780,33 @@ Out of memory: Kill process 19452 (java) score 264 or sacrifice child
 
 ## 服务器故障排查顺序
 
+#### 请求时好时坏
+
+- 系统层面
+	- 查看负载、CPU、内存、上线时间、高资源进程 PID：`htop`
+	- 查看网络丢失情况：`netstat -i 3`，关注：RX-DRP、TX-DRP，如果两个任何一个有值，或者都有值，肯定是网络出了问题（该值是历史累加数据，不是瞬间数据）。
+- 应用层面
+	- 临时修改 nginx log 输出格式，输出完整信息，包括请求头
+
+```
+$request_body   请求体（含POST数据）
+$http_XXX       指定某个请求头（XXX为字段名，全小写）
+$cookie_XXX     指定某个cookie值（XXX为字段名，全小写）
+
+
+类似用法：
+log_format  special_main  '$remote_addr - $remote_user [$time_local] "$request" '
+    '$status $body_bytes_sent "$request_body" "$http_referer" '
+    '"$http_user_agent" $http_x_forwarded_for "appid=$http_appid,appver=$http_appver,vuser=$http_vuser" '
+    '"phpsessid=$cookie_phpsessid,vuser_cookie=$cookie___vuser" ';
+
+
+access_log  /home/wwwlogs/hicrew.log special_main;
+
+```
+
+
+
 #### CPU 高，负载高，访问慢（没有数据库）
 
 - **记录负载开始升高的时间**
@@ -803,6 +833,7 @@ Out of memory: Kill process 19452 (java) score 264 or sacrifice child
 		- `netstat -nulp`
 	- 统计当前连接的一些状态情况：`netstat -nat |awk '{print $6}'|sort|uniq -c|sort -rn`
 	- 查看每个 ip 跟服务器建立的连接数：`netstat -nat|awk '{print$5}'|awk -F : '{print$1}'|sort|uniq -c|sort -rn`
+	- 查看与后端应用端口连接的有多少：`lsof -i:8080|grep 'TCP'|wc -l`
 	- 跟踪程序（按 `Ctrl + C` 停止跟踪）：`strace -tt -T -v -f -e trace=file -o /opt/strace-20180915.log -s 1024 -p PID`
 	- 看下谁在线：`w`，`last`
 	- 看下执行了哪些命令：`history`
@@ -898,6 +929,7 @@ S0     S1     E      O      M     CCS    YGC     YGCT    FGC    FGCT     GCT
 - <https://www.jianshu.com/p/3991c0dba094>
 - <https://www.jianshu.com/p/3667157d63bb>
 - <https://www.cnblogs.com/yjd_hycf_space/p/7755633.html>
+- <http://silverd.cn/2016/05/27/nginx-access-log.html>
 
 
 

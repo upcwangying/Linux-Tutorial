@@ -48,7 +48,7 @@
 - `last`，显示最近登录的帐户及时间
 - `lastlog`，显示系统所有用户各自在最近登录的记录，如果没有登录过的用户会显示 **从未登陆过**
 - `ls`，列出当前目录下的所有没有隐藏的文件 / 文件夹。
-	- `ls -a`，列出包括以．号开头的隐藏文件 / 文件夹（也就是所有文件）
+	- `ls -a`，列出包括以.号开头的隐藏文件 / 文件夹（也就是所有文件）
 	- `ls -R`，显示出目录下以及其所有子目录的文件 / 文件夹（递归地方式，不显示隐藏的文件）
 	- `ls -a -R`，显示出目录下以及其所有子目录的文件 / 文件夹（递归地方式，显示隐藏的文件）
 	- `ls -al`，列出目录下所有文件（包含隐藏）的权限、所有者、文件大小、修改时间及名称（也就是显示详细信息）
@@ -107,6 +107,7 @@ drwxr-xr-x. 5 root root 4096 3月 26 10:57，其中最前面的 d 表示这是�
 	- `find . -name "lin*" -exec ls -l {} \;`，当前目录搜索lin开头的文件，然后用其搜索后的结果集，再执行ls -l的命令（这个命令可变，其他命令也可以），其中 -exec 和 {} \; 都是固定格式
 	- `find /opt -type f -size +800M  -print0 | xargs -0 du -h | sort -nr`，找出 /opt 目录下大于 800 M 的文件
 	- `find / -name "*tower*" -exec rm {} \;`，找到文件并删除
+	- `find / -name "*tower*" -exec mv {} /opt \;`，找到文件并移到 opt 目录
 	- `find . -name "*" |xargs grep "youmeek"`，递归查找当前文件夹下所有文件内容中包含 youmeek 的文件
 	- `find . -size 0 | xargs rm -f &`，删除当前目录下文件大小为0的文件
 	- `du -hm --max-depth=2 | sort -nr | head -12`，找出系统中占用容量最大的前 12 个目录
@@ -130,7 +131,8 @@ drwxr-xr-x. 5 root root 4096 3月 26 10:57，其中最前面的 d 表示这是�
 - `kill`
 	- `kill 1234`，结束 pid 为 1234 的进程
 	- `kill -9 1234`，强制结束 pid 为 1234 的进程（慎重）
-	- `killall java`，杀死同一进程组内的所有为 java 进程
+	- `killall java`，结束同一进程组内的所有为 java 进程
+	- `ps -ef|grep hadoop|grep -v grep|cut -c 9-15|xargs kill -9`，结束包含关键字 hadoop 的所有进程
 - `head`
 	- `head -n 10 spring.ini`，查看当前文件的前 10 行内容
 - `tail`
@@ -139,6 +141,8 @@ drwxr-xr-x. 5 root root 4096 3月 26 10:57，其中最前面的 d 表示这是�
 
 ## 用户、权限-相关命令
 
+- 使用 pem 证书登录：`ssh -i /opt/mykey.pem root@192.168.0.70`
+	- 证书权限不能太大，不然无法使用：`chmod 600 mykey.pem`
 - `hostname`，查看当前登陆用户全名
 - `cat /etc/group`，查看所有组
 - `cat /etc/passwd`，查看所有用户
